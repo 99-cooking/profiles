@@ -159,9 +159,3 @@ app.get('/api/scores/:assessmentId', async (c) => {
 app.get('/health', (c) => c.json({ status: 'ok' }));
 
 export default app;
-
-// Start server on port 8081 for testing
-Bun.serve({
-  fetch: app.fetch,
-  port: 8081,
-});
