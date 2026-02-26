@@ -1,0 +1,17 @@
+{
+  "name": "profiles",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev:api": "bun run --filter api",
+    "dev:web": "bun run --filter web",
+    "db:push": "bun run --filter db db:push",
+    "db:seed": "bun run --filter db db:seed",
+    "build": "bun run --filter '*' build",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@profiles/db",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "db:push": "bun run src/migrate.ts",
+    "db:seed": "bun run src/seed.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.29.0"
+  }
+}
