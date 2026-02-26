@@ -20,8 +20,8 @@ import reportsApp from './routes/reports';
 
 const app = new Hono();
 
-// Root endpoint
-app.get('/', (c) => c.json({ 
+// API info endpoint (under /api)
+app.get('/api', (c) => c.json({ 
   message: 'Profiles API',
   version: '1.0.0',
   endpoints: [
@@ -166,10 +166,14 @@ app.get('/api/scores/:assessmentId', async (c) => {
 app.get('/health', (c) => c.json({ status: 'ok' }));
 
 // Serve static frontend in production
-import { readFileSync, existsSync, statSync } from 'fs';
+import { readFileSync, existsSync, statSync, readdirSync } from 'fs';
 import { resolve, join, extname } from 'path';
 
 const staticDir = resolve(import.meta.dir, '../../../web/dist');
+console.log(`Static dir: ${staticDir}, exists: ${existsSync(staticDir)}`);
+if (existsSync(staticDir)) {
+  console.log(`Static files: ${readdirSync(staticDir).join(', ')}`);
+}
 const mimeTypes: Record<string, string> = {
   '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
