@@ -181,10 +181,9 @@ if (existsSync(staticDir)) {
 }
 
 const port = parseInt(process.env.PORT || '3000');
-Bun.serve({
-  fetch: app.fetch,
-  port,
-});
 console.log(`Profiles API running on port ${port}`);
 
-export default app;
+export default {
+  port,
+  fetch: app.fetch,
+};
