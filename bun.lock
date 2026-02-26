@@ -12,6 +12,9 @@
       "name": "@profiles/api",
       "version": "1.0.0",
       "dependencies": {
+        "@profiles/core": "workspace:*",
+        "@profiles/db": "workspace:*",
+        "drizzle-orm": "^0.29.0",
         "hono": "^3.11.0",
       },
     },

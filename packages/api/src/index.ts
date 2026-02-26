@@ -1,11 +1,25 @@
 /**
  * Profiles API - Hono REST API
+ * 
+ * Routes:
+ * - /api/scales - Scale definitions
+ * - /api/items - Assessment items
+ * - /api/assessments - Assessment session management
+ * - /api/candidates - Candidate management
+ * - /api/performance-models - Job performance models
+ * - /api/match - Job matching algorithm
+ * - /api/jas - Job Analysis Survey
  */
 
 import { Hono } from 'hono';
+import assessmentsApp from './routes/assessments';
+import modelsApp from './routes/performance-models';
+import matchApp from './routes/match';
+import jasApp from './routes/jas';
 
 const app = new Hono();
 
+// Root endpoint
 app.get('/', (c) => c.json({ 
   message: 'Profiles API',
   version: '1.0.0',
@@ -14,9 +28,10 @@ app.get('/', (c) => c.json({
     '/api/items',
     '/api/assessments',
     '/api/candidates',
-    '/api/scores',
-    '/api/models',
+    '/api/performance-models',
+    '/api/performance-models/library',
     '/api/match',
+    '/api/jas',
   ]
 }));
 
@@ -53,9 +68,7 @@ app.get('/api/items', async (c) => {
   const scaleId = c.req.query('scale_id');
   const domain = c.req.query('domain');
   
-  let query = db.select().from(items).where(eq(items.isActive, 1));
-  
-  const result = query.all();
+  const result = db.select().from(items).where(eq(items.isActive, 1)).all();
   return c.json(result);
 });
 
@@ -83,10 +96,18 @@ app.post('/api/candidates', async (c) => {
     firstName: body.firstName,
     lastName: body.lastName,
     externalId: body.externalId,
+    metadata: JSON.stringify(body.metadata || {}),
     createdAt: new Date(),
   });
   
   return c.json({ id }, 201);
+});
+
+app.get('/api/candidates', async (c) => {
+  const { db } = await import('@profiles/db');
+  const { candidates } = await import('@profiles/db/schema');
+  const result = await db.select().from(candidates).all();
+  return c.json(result);
 });
 
 app.get('/api/candidates/:id', async (c) => {
@@ -99,117 +120,48 @@ app.get('/api/candidates/:id', async (c) => {
   return c.json(result);
 });
 
-// Assessment endpoints
-app.post('/api/assessments', async (c) => {
-  const { db } = await import('@profiles/db');
-  const { assessments } = await import('@profiles/db/schema');
-  
-  const body = await c.req.json();
-  const id = `assessment_${Date.now()}`;
-  
-  await db.insert(assessments).values({
-    id,
-    candidateId: body.candidateId,
-    type: body.type || 'full',
-    status: 'not_started',
-    currentItemIndex: 0,
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    createdAt: new Date(),
-  });
-  
-  return c.json({ id }, 201);
-});
+// Assessment endpoints - mounted from routes
+app.route('/api/assessments', assessmentsApp);
 
-app.get('/api/assessments/:id', async (c) => {
+// Performance Models endpoints - mounted from routes
+app.route('/api/performance-models', modelsApp);
+
+// Job Match endpoints - mounted from routes
+app.route('/api/match', matchApp);
+
+// Job Analysis Survey endpoints - mounted from routes
+app.route('/api/jas', jasApp);
+
+// Score endpoints (for viewing completed assessments)
+app.get('/api/scores/:assessmentId', async (c) => {
   const { db } = await import('@profiles/db');
-  const { assessments } = await import('@profiles/db/schema');
+  const { scaleScores, scales } = await import('@profiles/db/schema');
   const { eq } = await import('drizzle-orm');
   
-  const result = await db.select().from(assessments).where(eq(assessments.id, c.req.param('id'))).get();
-  if (!result) return c.json({ error: 'Assessment not found' }, 404);
-  return c.json(result);
-});
-
-app.post('/api/assessments/:id/start', async (c) => {
-  const { db } = await import('@profiles/db');
-  const { assessments } = await import('@profiles/db/schema');
-  const { eq } = await import('drizzle-orm');
+  const assessmentId = c.req.param('assessmentId');
   
-  const id = c.req.param('id');
-  const assessment = await db.select().from(assessments).where(eq(assessments.id, id)).get();
-  
-  if (!assessment) return c.json({ error: 'Assessment not found' }, 404);
-  
-  await db.update(assessments)
-    .set({ status: 'in_progress', startedAt: new Date(), currentSection: 'cognitive' })
-    .where(eq(assessments.id, id));
-  
-  return c.json({ success: true });
-});
-
-// Score calculation endpoint
-app.post('/api/scores/compute', async (c) => {
-  const body = await c.req.json();
-  const { likertSumToSten, estimateAbility, selectNextItem, thetaToSten } = await import('@profiles/core');
-  const { db } = await import('@profiles/db');
-  const { items: itemsSchema, responses: responsesSchema, scaleScores: scaleScoresSchema } = await import('@profiles/db/schema');
-  const { eq, and } = await import('drizzle-orm');
-  
-  const assessmentId = body.assessmentId;
-  const scaleId = body.scaleId;
-  
-  // Get responses for this scale
-  const scale = await db.select().from(itemsSchema).where(eq(itemsSchema.scaleId, scaleId)).all();
-  const responseData = await db.select().from(responsesSchema)
-    .where(and(
-      eq(responsesSchema.assessmentId, assessmentId),
-      eq(responsesSchema.itemId, scale[0]?.id || '')
-    ))
+  const scores = await db.select().from(scaleScores)
+    .where(eq(scaleScores.assessmentId, assessmentId))
     .all();
   
-  // Get item IRT params
-  const itemIds = responseData.map(r => r.itemId);
-  const itemParams = await db.select().from(itemsSchema)
-    .where(itemsSchema.id in itemIds)
-    .all();
+  // Get scale details
+  const scoresWithScales = await Promise.all(
+    scores.map(async (score) => {
+      const scale = await db.select().from(scales).where(eq(scales.id, score.scaleId)).get();
+      return { ...score, scale };
+    })
+  );
   
-  // Calculate score based on scale type
-  const scaleInfo = await db.select().from(itemsSchema).where(eq(itemsSchema.scaleId, scaleId)).get();
-  
-  let rawScore = 0;
-  let theta = 0;
-  let stenScore = 5;
-  
-  if (scaleInfo?.category === 'cognitive') {
-    // Use IRT estimation
-    const responses = responseData.map(r => r.isCorrect ? 1 : 0);
-    theta = estimateAbility(responses, itemParams);
-    stenScore = thetaToSten(theta);
-    rawScore = responseData.filter(r => r.isCorrect).length;
-  } else {
-    // Use Likert sum
-    const responses = responseData.map(r => JSON.parse(r.response));
-    rawScore = responses.reduce((sum, r) => sum + (parseInt(r) || 0), 0);
-    const n = responses.length;
-    stenScore = likertSumToSten(responses, 1, 5);
-  }
-  
-  // Save score
-  const scoreId = `score_${Date.now()}`;
-  await db.insert(scaleScoresSchema).values({
-    id: scoreId,
-    assessmentId,
-    scaleId,
-    rawScore,
-    stenScore,
-    itemCount: responseData.length,
-    computedAt: new Date(),
-  });
-  
-  return c.json({ rawScore, stenScore, theta });
+  return c.json(scoresWithScales);
 });
 
 // Health check
 app.get('/health', (c) => c.json({ status: 'ok' }));
 
 export default app;
+
+// Start server on port 8081 for testing
+Bun.serve({
+  fetch: app.fetch,
+  port: 8081,
+});
