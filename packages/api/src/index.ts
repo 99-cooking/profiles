@@ -166,15 +166,26 @@ app.get('/api/scores/:assessmentId', async (c) => {
 app.get('/health', (c) => c.json({ status: 'ok' }));
 
 // Serve static frontend in production
-import { serveStatic } from 'hono/bun';
-import { readFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
+import { readFileSync, existsSync, statSync } from 'fs';
+import { resolve, join, extname } from 'path';
 
 const staticDir = resolve(import.meta.dir, '../../../web/dist');
+const mimeTypes: Record<string, string> = {
+  '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',
+  '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+  '.json': 'application/json', '.woff2': 'font/woff2', '.woff': 'font/woff',
+};
+
 if (existsSync(staticDir)) {
-  app.use('/*', serveStatic({ root: staticDir }));
-  // SPA fallback
   app.get('*', (c) => {
+    const urlPath = new URL(c.req.url).pathname;
+    const filePath = join(staticDir, urlPath === '/' ? 'index.html' : urlPath);
+    if (existsSync(filePath) && statSync(filePath).isFile()) {
+      const content = readFileSync(filePath);
+      const mime = mimeTypes[extname(filePath)] || 'application/octet-stream';
+      return new Response(content, { headers: { 'Content-Type': mime } });
+    }
+    // SPA fallback
     const html = readFileSync(resolve(staticDir, 'index.html'), 'utf-8');
     return c.html(html);
   });
