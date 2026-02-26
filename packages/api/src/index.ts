@@ -16,6 +16,7 @@ import assessmentsApp from './routes/assessments';
 import modelsApp from './routes/performance-models';
 import matchApp from './routes/match';
 import jasApp from './routes/jas';
+import reportsApp from './routes/reports';
 
 const app = new Hono();
 
@@ -32,6 +33,9 @@ app.get('/', (c) => c.json({
     '/api/performance-models/library',
     '/api/match',
     '/api/jas',
+    '/api/reports/selection',
+    '/api/reports/compare',
+    '/api/reports/interview',
   ]
 }));
 
@@ -132,6 +136,9 @@ app.route('/api/match', matchApp);
 // Job Analysis Survey endpoints - mounted from routes
 app.route('/api/jas', jasApp);
 
+// Reports endpoints - mounted from routes
+app.route('/api/reports', reportsApp);
+
 // Score endpoints (for viewing completed assessments)
 app.get('/api/scores/:assessmentId', async (c) => {
   const { db } = await import('@profiles/db');
@@ -157,5 +164,27 @@ app.get('/api/scores/:assessmentId', async (c) => {
 
 // Health check
 app.get('/health', (c) => c.json({ status: 'ok' }));
+
+// Serve static frontend in production
+import { serveStatic } from 'hono/bun';
+import { readFileSync, existsSync } from 'fs';
+import { resolve } from 'path';
+
+const staticDir = resolve(import.meta.dir, '../../../web/dist');
+if (existsSync(staticDir)) {
+  app.use('/*', serveStatic({ root: staticDir }));
+  // SPA fallback
+  app.get('*', (c) => {
+    const html = readFileSync(resolve(staticDir, 'index.html'), 'utf-8');
+    return c.html(html);
+  });
+}
+
+const port = parseInt(process.env.PORT || '3000');
+Bun.serve({
+  fetch: app.fetch,
+  port,
+});
+console.log(`Profiles API running on port ${port}`);
 
 export default app;

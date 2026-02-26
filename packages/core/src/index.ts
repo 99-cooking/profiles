@@ -15,3 +15,6 @@ export * from './distortion';
 
 // Learning Index
 export * from './learning-index';
+
+// Interview Question Bank
+export * from './interview-questions';
