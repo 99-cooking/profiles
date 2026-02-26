@@ -169,7 +169,7 @@ app.get('/health', (c) => c.json({ status: 'ok' }));
 import { readFileSync, existsSync, statSync, readdirSync } from 'fs';
 import { resolve, join, extname } from 'path';
 
-const staticDir = resolve(import.meta.dir, '../../../web/dist');
+const staticDir = resolve(import.meta.dir, '../../web/dist');
 console.log(`Static dir: ${staticDir}, exists: ${existsSync(staticDir)}`);
 if (existsSync(staticDir)) {
   console.log(`Static files: ${readdirSync(staticDir).join(', ')}`);
