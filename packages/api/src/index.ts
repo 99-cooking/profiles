@@ -68,6 +68,7 @@ app.get('/api/scales/:id', async (c) => {
 app.get('/api/items', async (c) => {
   const { db } = await import('@profiles/db');
   const { items } = await import('@profiles/db/schema');
+  const { eq } = await import('drizzle-orm');
   
   const scaleId = c.req.query('scale_id');
   const domain = c.req.query('domain');
