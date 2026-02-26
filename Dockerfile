@@ -16,7 +16,7 @@ COPY . .
 RUN cd packages/web && bun run build
 
 # Init DB + seed
-RUN bun run db:push && bun run db:seed
+RUN cd packages/db && bun run db:push && bun run db:seed
 
 EXPOSE 3000
 CMD ["bun", "run", "packages/api/src/index.ts"]
