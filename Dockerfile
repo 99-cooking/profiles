@@ -15,8 +15,8 @@ COPY . .
 # Build frontend
 RUN cd packages/web && bun run build
 
-# Init DB + seed
-RUN cd packages/db && bun run db:push && bun run db:seed
+# Init DB + seed (run from project root so profiles.db lands at /app/profiles.db)
+RUN bun run packages/db/src/migrate.ts && bun run packages/db/src/seed.ts && bun run packages/db/src/seed-items.ts && bun run packages/db/src/seed-library.ts
 
 EXPOSE 3000
 CMD ["bun", "run", "packages/api/src/index.ts"]
